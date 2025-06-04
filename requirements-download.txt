@@ -1,0 +1,5 @@
+# Use these when downloading 8K images off 8K YouTube videos
+
+yt-dlp
+opencv-python
+matplotlib
