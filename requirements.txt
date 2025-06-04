@@ -1,2 +1,7 @@
 opencv-python==4.11.0.86
 numpy==1.24.3 
+
+# Use these when downloading 8K images off 8K YouTube videos
+yt-dlp
+opencv-python
+matplotlib
