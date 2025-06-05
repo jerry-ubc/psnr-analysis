@@ -14,25 +14,11 @@ def calculate_psnr(img1_path, img2_path):
         print("ERROR: couldn't read image(s)")
         return None
     
-    # Get bit depth of the image -- needed for numerator of PSNR formula
-    bit_depth = img1.dtype.itemsize * 8     # e.g., uint8 = 8 bits, uint16 = 16 bits
-    max_pixel = float(2 ** bit_depth - 1)   # e.g., 255 for 8-bit int, 65535 for 16-bit int
-    
-    # Convert to float for calculations
-    img1 = img1.astype(np.float32)
-    img2 = img2.astype(np.float32)
-    
-    # Mean Squared Error
-    mse = np.mean((img1 - img2) ** 2)
-    
-    if mse == 0:
-        return float('inf')
-        
-    psnr = 20 * np.log10(max_pixel / np.sqrt(mse))
+    # Use OpenCV's PSNR function
+    psnr = cv2.PSNR(img1, img2)
     return psnr
 
 def save_results(subrepo, stats, filename="psnr_results.json"):
-    """Save PSNR results to a JSON file, maintaining results for all resolutions."""
     # Create results directory if it doesn't exist
     os.makedirs("results", exist_ok=True)
     
@@ -108,13 +94,10 @@ def batch_calculate_psnr(subrepo):
             # Time only the pure PSNR calculation
             pure_start = time.perf_counter()  # More precise for short durations
             
-            # Calculate PSNR using pre-loaded normalized images
-            mse = np.mean((img1 - img2) ** 2)
-            if mse == 0:
-                psnr = float('inf')
-            else:
-                psnr = 20 * np.log10(1.0 / np.sqrt(mse))  # Using 1.0 since images are normalized
-            
+            # Calculate PSNR using pre-processed images-guaranteed identical sizes
+            img1_uint8 = (img1 * max_pixel).astype(np.uint8)
+            img2_uint8 = (img2 * max_pixel).astype(np.uint8)
+            psnr = cv2.PSNR(img1_uint8, img2_uint8)
             pure_calculation_time += time.perf_counter() - pure_start
             
             if psnr != float('inf'):
@@ -235,6 +218,22 @@ def list_images_in_directory(directory="images/other"):
             images.append(file)
     
     return sorted(images)  # Sort alphabetically
+
+def calculate_average_psnr(video1_frames, video2_frames):
+    if video1_frames is None or video2_frames is None:
+        raise ValueError("Frame lists must not be None.")
+    if len(video1_frames) != len(video2_frames):
+        raise ValueError("Frame lists must be of the same length.")
+
+    for i in range (0, len(video1_frames)):
+        rolling_psnr = 0
+        successful_compares = 0
+        contribution = calculate_average_psnr(video1_frames[i], video2_frames[i])
+        if (contribution):
+            rolling_psnr += contribution
+            successful_compares += 1
+
+    return (rolling_psnr / successful_compares)
 
 if __name__ == '__main__':
     main()
