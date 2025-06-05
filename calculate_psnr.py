@@ -32,14 +32,26 @@ def calculate_psnr(img1_path, img2_path):
     return psnr
 
 def save_results(subrepo, stats, filename="psnr_results.json"):
+    """Save PSNR results to a JSON file, maintaining results for all resolutions."""
     # Create results directory if it doesn't exist
     os.makedirs("results", exist_ok=True)
     
-    stats['subrepo'] = subrepo
+    # Load existing results if file exists
+    results = {}
+    if os.path.exists(os.path.join("results", filename)):
+        with open(os.path.join("results", filename), 'r') as f:
+            results = json.load(f)
     
-    # Save results (overwriting previous)
+    # Update results for this resolution
+    resolution = subrepo.split('-')[0]  # Get '2k', '4k', or '8k' from the subrepo name
+    results[resolution] = {
+        'stats': stats,
+        'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')
+    }
+    
+    # Save updated results
     with open(os.path.join("results", filename), 'w') as f:
-        json.dump(stats, f, indent=4)
+        json.dump(results, f, indent=4)
     
     print(f"\nResults saved to results/{filename}")
 
@@ -52,55 +64,84 @@ def batch_calculate_psnr(subrepo):
                  glob.glob(os.path.join(directory, "*.jpeg")) + \
                  glob.glob(os.path.join(directory, "*.png"))
     
-    image_files = sorted(image_files)[:50]  # Take only first X images
+    image_files = sorted(image_files)[:25]  # Take only first X images
     
     if not image_files:
         print(f"No images found in {directory}")
         return
     
+    # Load all images into memory first
+    print("Loading all images into memory...")
+    images = {}
+    for img_path in image_files:
+        img = cv2.imread(img_path)
+        if img is not None:
+            bit_depth = img.dtype.itemsize * 8
+            max_pixel = float(2 ** bit_depth - 1)
+            # Convert to float32 and normalize into [0, 1]
+            images[img_path] = (img.astype(np.float32) / max_pixel, max_pixel)
+    
     # Total comparisons
-    n = len(image_files)
+    n = len(images)
     total_comparisons = (n * (n-1)) // 2  # n choose 2
     print(f"Will perform {total_comparisons} comparisons in total")
     
     # Statistics collection
     psnr_values = []
     num_comparisons = 0
-    unusual_psnr_count = 0  # Count of PSNR values outside normal range
+    pure_calculation_time = 0  # Track time spent only on PSNR calculation
     
-    # Start timing
-    start_time = time.time()
+    # Start timing for total execution
+    total_start_time = time.time()
     
     # Compare each image with every other image
     for i, img1_path in enumerate(image_files):
+        if img1_path not in images:
+            continue
+        img1, max_pixel = images[img1_path]
+        
         for j, img2_path in enumerate(image_files[i+1:], i+1):
-            psnr = calculate_psnr(img1_path, img2_path)
+            if img2_path not in images:
+                continue
+            img2, _ = images[img2_path]
             
-            if psnr is not None:
-                if psnr != float('inf'):
-                    if psnr < 20 or psnr > 50:
-                        unusual_psnr_count += 1
-                    psnr_values.append(psnr)
-                num_comparisons += 1
-                
-                if num_comparisons % 100 == 0:
-                    elapsed = time.time() - start_time
-                    rate = num_comparisons / elapsed
-                    print(f"Progress: {num_comparisons}/{total_comparisons} comparisons "
-                          f"({(num_comparisons/total_comparisons*100):.1f}%) "
-                          f"| Rate: {rate:.1f} comp/s")
+            # Time only the pure PSNR calculation
+            pure_start = time.perf_counter()  # More precise for short durations
+            
+            # Calculate PSNR using pre-loaded normalized images
+            mse = np.mean((img1 - img2) ** 2)
+            if mse == 0:
+                psnr = float('inf')
+            else:
+                psnr = 20 * np.log10(1.0 / np.sqrt(mse))  # Using 1.0 since images are normalized
+            
+            pure_calculation_time += time.perf_counter() - pure_start
+            
+            if psnr != float('inf'):
+                psnr_values.append(psnr)
+            num_comparisons += 1
+            
+            if num_comparisons % 100 == 0:
+                elapsed = time.time() - total_start_time
+                rate = num_comparisons / elapsed
+                print(f"Progress: {num_comparisons}/{total_comparisons} comparisons "
+                      f"({(num_comparisons/total_comparisons*100):.1f}%) "
+                      f"| Rate: {rate:.1f} comp/s")
     
     # Calculate total time
-    total_time = time.time() - start_time
+    total_time = time.time() - total_start_time
     comparisons_per_second = num_comparisons / total_time
     avg_time_per_comparison = total_time / num_comparisons
+    avg_pure_calculation_time = pure_calculation_time / num_comparisons
     
     # Prepare statistics
     stats = {
         'num_comparisons': num_comparisons,
         'total_time': float(f"{total_time:.2f}"),
+        'pure_calculation_time': float(f"{pure_calculation_time:.2f}"),
         'comparisons_per_second': float(f"{comparisons_per_second:.1f}"),
-        'avg_time_per_comparison': float(f"{avg_time_per_comparison:.3f}")
+        'avg_time_per_comparison': float(f"{avg_time_per_comparison:.6f}"),
+        'avg_pure_calculation_time': float(f"{avg_pure_calculation_time:.6f}")
     }
     
     if psnr_values:
@@ -114,7 +155,9 @@ def batch_calculate_psnr(subrepo):
     print(f"\nStatistics for {subrepo}:")
     print(f"Number of comparisons: {stats['num_comparisons']}")
     print(f"Total execution time: {stats['total_time']:.2f} seconds")
-    print(f"Average time per comparison: {stats['avg_time_per_comparison']:.3f} seconds")
+    print(f"Pure calculation time: {stats['pure_calculation_time']:.2f} seconds")
+    print(f"Average time per comparison: {stats['avg_time_per_comparison']:.6f} seconds")
+    print(f"Average pure calculation time: {stats['avg_pure_calculation_time']:.6f} seconds")
     print(f"Speed: {stats['comparisons_per_second']:.1f} comparisons/second")
     if psnr_values:
         print(f"PSNR range: {stats['min_psnr']} to {stats['max_psnr']} dB")
@@ -122,6 +165,9 @@ def batch_calculate_psnr(subrepo):
     
     # Save results to file
     save_results(subrepo, stats)
+
+    # Clear memory
+    images.clear()
 
 def main():
     print("PSNR Calculation Benchmark")
@@ -180,7 +226,7 @@ def main():
         else:
             print("Try again")
 
-def list_images_in_directory(directory="images"):
+def list_images_in_directory(directory="images/other"):
     image_extensions = ['.jpg', '.jpeg', '.png']
     images = []
     

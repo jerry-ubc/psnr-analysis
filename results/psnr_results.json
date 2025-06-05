@@ -1,0 +1,44 @@
+{
+    "2k": {
+        "stats": {
+            "num_comparisons": 300,
+            "total_time": 1.35,
+            "pure_calculation_time": 1.35,
+            "comparisons_per_second": 222.9,
+            "avg_time_per_comparison": 0.004487,
+            "avg_pure_calculation_time": 0.004485,
+            "avg_psnr": 9.01,
+            "min_psnr": 6.04,
+            "max_psnr": 12.9
+        },
+        "timestamp": "2025-06-03 18:12:03"
+    },
+    "4k": {
+        "stats": {
+            "num_comparisons": 300,
+            "total_time": 7.94,
+            "pure_calculation_time": 7.94,
+            "comparisons_per_second": 37.8,
+            "avg_time_per_comparison": 0.026458,
+            "avg_pure_calculation_time": 0.026455,
+            "avg_psnr": 7.98,
+            "min_psnr": 2.56,
+            "max_psnr": 14.14
+        },
+        "timestamp": "2025-06-03 18:12:14"
+    },
+    "8k": {
+        "stats": {
+            "num_comparisons": 300,
+            "total_time": 31.39,
+            "pure_calculation_time": 31.39,
+            "comparisons_per_second": 9.6,
+            "avg_time_per_comparison": 0.104647,
+            "avg_pure_calculation_time": 0.104644,
+            "avg_psnr": 8.22,
+            "min_psnr": 3.51,
+            "max_psnr": 16.51
+        },
+        "timestamp": "2025-06-03 18:12:58"
+    }
+}

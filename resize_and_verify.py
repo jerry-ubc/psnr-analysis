@@ -1,3 +1,5 @@
+# This file is used to pre-process
+
 import cv2
 import os
 import glob
