@@ -2,13 +2,6 @@
 
 This project provides tools for analyzing image quality using PSNR (Peak Signal-to-Noise Ratio) metrics across different resolutions.
 
-## Features
-
-- Image resolution verification and standardization
-- Batch PSNR calculations
-- Support for 2K, 4K, and 8K resolutions
-- Performance metrics and statistics
-
 ## Setup
 
 1. Create a Python virtual environment:
