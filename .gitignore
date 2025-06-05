@@ -1,41 +1,12 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-.env
-.venv
-venv/
+# Ignore video files
+*.mp4
 
-# Images and data
-images/*
-!images/.gitkeep
-data/*
-!data/.gitkeep
-temp/*
-!temp/.gitkeep
+# Ignore image files
+*.jpg
+*.jpeg
+*.png
+*.tiff
 
-# IDE
-.vscode/
-.idea/
-
-# Results
-results/*
-!results/.gitkeep 
+videos/
+images/
+data/
