@@ -12,3 +12,8 @@ images/
 data/
 __pycache__
 venv/
+lo_res_frames/
+hi_res_frames/
+upscaled_frames/
+dlpp_models/
+#TODO: also check if ffmpeg is needed, else delete it
