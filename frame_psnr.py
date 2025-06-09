@@ -220,15 +220,17 @@ def list_images_in_directory(directory="images/other"):
     return sorted(images)  # Sort alphabetically
 
 def calculate_average_psnr(video1_frames, video2_frames):
+
+    #TODO: write down PSNR of each calculation, then report final average as well
     if video1_frames is None or video2_frames is None:
-        raise ValueError("Frame lists must not be None.")
+        raise ValueError("Frame list(s) are None")
     if len(video1_frames) != len(video2_frames):
         raise ValueError("Frame lists must be of the same length.")
-
+    
+    successful_compares = 0
+    rolling_psnr = 0
     for i in range (0, len(video1_frames)):
-        rolling_psnr = 0
-        successful_compares = 0
-        contribution = calculate_average_psnr(video1_frames[i], video2_frames[i])
+        contribution = cv2.PSNR(video1_frames[i], video2_frames[i])
         if (contribution):
             rolling_psnr += contribution
             successful_compares += 1

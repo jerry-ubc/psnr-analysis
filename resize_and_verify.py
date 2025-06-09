@@ -1,4 +1,4 @@
-# This file is used to pre-process
+# This file is used to pre-process for batch_processing
 
 import cv2
 import os
