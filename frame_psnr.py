@@ -5,6 +5,7 @@ import time
 import glob
 import json
 from collections import defaultdict
+import csv
 
 def calculate_psnr(img1_path, img2_path):
     img1 = cv2.imread(img1_path)
@@ -219,23 +220,39 @@ def list_images_in_directory(directory="images/other"):
     
     return sorted(images)  # Sort alphabetically
 
-def calculate_average_psnr(video1_frames, video2_frames):
-
-    #TODO: write down PSNR of each calculation, then report final average as well
+def calculate_average_psnr(video1_frames, video2_frames, output_file='psnr_results.csv', src_resolution=None, dst_resolution=None, dlpp_version=None):
+    """
+    Calculates PSNR for each frame pair and writes results to a CSV file, including the average.
+    CSV columns: frame,psnr
+    Always writes test details as comments at the top of the file.
+    """
     if video1_frames is None or video2_frames is None:
         raise ValueError("Frame list(s) are None")
     if len(video1_frames) != len(video2_frames):
         raise ValueError("Frame lists must be of the same length.")
+    if src_resolution is None or dst_resolution is None or dlpp_version is None:
+        raise ValueError("src_resolution, dst_resolution, and dlpp_version must be provided.")
     
     successful_compares = 0
     rolling_psnr = 0
-    for i in range (0, len(video1_frames)):
-        contribution = cv2.PSNR(video1_frames[i], video2_frames[i])
-        if (contribution):
-            rolling_psnr += contribution
-            successful_compares += 1
-
-    return (rolling_psnr / successful_compares)
+    psnr_values = []
+    with open(output_file, 'w', newline='') as f:
+        # Write test details as comments
+        f.write(f"# Source resolution: {src_resolution}\n")
+        f.write(f"# Destination resolution: {dst_resolution}\n")
+        f.write(f"# DLPP version: {dlpp_version}\n")
+        writer = csv.writer(f)
+        writer.writerow(['frame', 'psnr'])
+        for i in range(len(video1_frames)):
+            psnr = cv2.PSNR(video1_frames[i], video2_frames[i])
+            psnr_values.append(psnr)
+            writer.writerow([i, psnr])
+            if psnr:
+                rolling_psnr += psnr
+                successful_compares += 1
+        avg_psnr = rolling_psnr / successful_compares if successful_compares > 0 else 0
+        writer.writerow(['average', avg_psnr])
+    return avg_psnr
 
 if __name__ == '__main__':
     main()
