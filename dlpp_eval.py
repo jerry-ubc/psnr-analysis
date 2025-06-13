@@ -124,11 +124,11 @@ def calculate_psnr(video1_path: str, video2_path: str, capture_frames: bool = Fa
         for i, frame_file in enumerate(frame_files):
             input_path = f'{remote_lo_res}/{frame_file}'
             output_path = f'{remote_upscaled}/upscaled_{i:05d}.png'
-            command = (
+            command = (     #TODO: parametrize this step so no user intervention is required
                 f'cd {remote_dir} && chmod +x {dlpp_model} && '
-                # f'./{dlpp_model} {input_path} {output_path} -dst_h 4320 -dst_w 7680 -runs 100 -model DLPP_{model_trim}'   # Use for 1080p -> 8K
+                f'./{dlpp_model} {input_path} {output_path} -dst_h 4320 -dst_w 7680 -runs 100 -model DLPP_{model_trim}'   # Use for 1080p -> 8K
                 # f'./{dlpp_model} {input_path} {output_path} -runs 100 -model DLPP_{model_trim}'                           # Use for 4K -> 8K
-                f'./{dlpp_model} {input_path} {output_path} -dst_h 2160 -dst_w 3840 -runs 100 -model DLPP_{model_trim}'   # Use for 1080p -> 4K
+                # f'./{dlpp_model} {input_path} {output_path} -dst_h 2160 -dst_w 3840 -runs 100 -model DLPP_{model_trim}'   # Use for 1080p -> 4K
             )
             print(f"Running: {command}")
             subprocess.run(['adb', 'shell', command], check=True)
@@ -186,23 +186,26 @@ def main():
     Main function to extract frames and calculate average PSNR from two video files provided as command-line arguments.
     """
     parser = argparse.ArgumentParser(description="Video PSNR pipeline")
-    parser.add_argument('video1_path', type=str, help='First video file')
-    parser.add_argument('video2_path', type=str, help='Second video file')
+    parser.add_argument('video1_name', type=str, help='e.g., japan1080.mp4')
+    parser.add_argument('video2_name', type=str, help='e.g., japan8k.mp4')
     parser.add_argument('frame_sampling_rate', type=int, help='Percentage of frames sampled (e.g., 5 for every 5% of frames)')
     parser.add_argument('model_trim', type=str, help="LOW, MEDIUM, or HIGH")
-    parser.add_argument('--skip-capture', action='store_true', default=False, help='If set, extract and save frames from videos (default: False)')
-    parser.add_argument('--skip-upscale', action='store_true', default=False, help='If set, run the upscaling model and pull upscaled frames (default: False)')
+    parser.add_argument('--skip-capture', action='store_true', default=False, help='If set, skips frame extraction from videos; skips to upscaling (default: False)')
+    parser.add_argument('--skip-upscale', action='store_true', default=False, help='If set, skips upscaling; skips to PSNR calculation (default: False)')
     args = parser.parse_args()
 
     capture_frames = not args.skip_capture
     run_upscaling = not args.skip_upscale
 
-    video1_path = f"videos/{args.video1_path}"
-    video2_path = f"videos/{args.video2_path}"
+    video1_path = f"videos/{args.video1_name}"
+    video2_path = f"videos/{args.video2_name}"
 
     if capture_frames:
-        print("Capturing frames, so automatically setting unsetting --skip-upscale")
+        print("Capturing frames, so automatically unsetting --skip-upscale")
         args.upscale_frames = True
+    if not run_upscaling:
+        print ("Skipping upscaling, so automatically setting --skip-capture")
+        args.capture_frames = False
 
     calculate_psnr(video1_path, video2_path, capture_frames, run_upscaling, sampling_rate=args.frame_sampling_rate, model_trim=args.model_trim)
 
