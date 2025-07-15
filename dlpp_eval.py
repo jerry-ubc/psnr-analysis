@@ -54,6 +54,7 @@ def make_frame_pairs(video1_path: str, video2_path: str, sampling_rate: int = 10
             hi_frame = next(hi_frames)
         except StopIteration:
             break
+
         if idx % step == 0:
             print(f"Capturing frame: {idx}")
             lo_res_frames.append(lo_frame.to_ndarray(format='bgr24'))       #TODO: what is bgr24 (not important rn)
@@ -121,6 +122,7 @@ def calculate_psnr(video1_path: str, video2_path: str, capture_frames: bool = Fa
         for i, frame_file in enumerate(frame_files):
             input_path = f'{remote_lo_res}/{frame_file}'
             output_path = f'{remote_upscaled}/upscaled_{i:05d}.png'
+
             command = (     #TODO: parametrize this step so no user intervention is required
                 f'cd {remote_dir} && chmod +x {dlpp_model} && '
                 # f'./{dlpp_model} {input_path} {output_path} -dst_h 4320 -dst_w 7680 -runs 100 -model DLPP_{model_trim}'   # Use for 1080p -> 8K
@@ -188,6 +190,7 @@ def main():
     parser.add_argument('model_trim', type=str, help="LOW, MEDIUM, or HIGH")
     parser.add_argument('--skip-capture', action='store_true', default=False, help='If set, skips frame extraction from videos; skips to upscaling (default: False)')
     parser.add_argument('--skip-upscale', action='store_true', default=False, help='If set, skips upscaling; skips to PSNR calculation (default: False)')
+
     args = parser.parse_args()
 
     capture_frames = not args.skip_capture

@@ -261,7 +261,7 @@ def calculate_average_psnr(video1_frames, video2_frames, output_file='psnr_resul
         plt.show()
     except ImportError:
         print("matplotlib is not installed. Skipping PSNR plot.")
-
+        
     return avg_psnr
 
 if __name__ == '__main__':
