@@ -1,17 +1,14 @@
 import cv2
-import numpy as np
-from typing import List, Tuple, Union
 import sys
 from frame_psnr import calculate_average_psnr
 import av  # PyAV for AV1 support
 import os
 import argparse
 import shutil
-
 import subprocess
 
 
-def make_frame_pairs(video1_path: str, video2_path: str, sampling_rate: int = 0):
+def make_frame_pairs(video1_path: str, video2_path: str, sampling_rate: int = 100):
     # Using PyAV, CV2 doesn't support AV1 encodings
     container1 = av.open(video1_path)
     container2 = av.open(video2_path)
@@ -24,6 +21,12 @@ def make_frame_pairs(video1_path: str, video2_path: str, sampling_rate: int = 0)
     if total_frames1 != total_frames2:
         print("CAUTION: frame mismatch between videos")
     print(f"Total frames: {total_frames1}")
+
+    # Calculate step size based on percentage
+    if sampling_rate <= 0 or sampling_rate > 100:
+        raise ValueError("sampling_rate must be in (0, 100]")
+    step = max(1, int(total_frames1 * (sampling_rate / 100.0)))
+    print(f"Sampling every {step} frames (sampling rate: {sampling_rate}%)")
 
     # Migrate to new variables: lo_stream and hi_stream
     frame1 = next(container1.decode(stream1))
@@ -51,7 +54,8 @@ def make_frame_pairs(video1_path: str, video2_path: str, sampling_rate: int = 0)
             hi_frame = next(hi_frames)
         except StopIteration:
             break
-        if idx % (total_frames1 // sampling_rate) == 0:     #TODO: this was a quick solution, double check if it's safe
+
+        if idx % step == 0:
             print(f"Capturing frame: {idx}")
             lo_res_frames.append(lo_frame.to_ndarray(format='bgr24'))       #TODO: what is bgr24 (not important rn)
             hi_res_frames.append(hi_frame.to_ndarray(format='bgr24'))
@@ -105,8 +109,7 @@ def calculate_psnr(video1_path: str, video2_path: str, capture_frames: bool = Fa
         subprocess.run(['adb', 'root'], check=True)
         subprocess.run(['adb', 'remount'], check=True)
 
-        # Now push libcudart.so to vendor/lib and vendor/lib64
-        subprocess.run(['adb', 'push', 'libcudart.so', 'vendor/lib/'], check=True)
+        # Now push libcudart.so to vendor/lib64
         subprocess.run(['adb', 'push', 'libcudart.so', 'vendor/lib64/'], check=True)
 
         # 1. Push lo_res_frames and model binary
@@ -119,9 +122,12 @@ def calculate_psnr(video1_path: str, video2_path: str, capture_frames: bool = Fa
         for i, frame_file in enumerate(frame_files):
             input_path = f'{remote_lo_res}/{frame_file}'
             output_path = f'{remote_upscaled}/upscaled_{i:05d}.png'
-            command = (
+
+            command = (     #TODO: parametrize this step so no user intervention is required
                 f'cd {remote_dir} && chmod +x {dlpp_model} && '
-                f'./{dlpp_model} {input_path} {output_path} -dst_h 4320 -dst_w 7680 -runs 100 -model DLPP_{model_trim}'
+                # f'./{dlpp_model} {input_path} {output_path} -dst_h 4320 -dst_w 7680 -runs 100 -model DLPP_{model_trim}'   # Use for 1080p -> 8K
+                # f'./{dlpp_model} {input_path} {output_path} -runs 100 -model DLPP_{model_trim}'                           # Use for 4K -> 8K
+                f'./{dlpp_model} {input_path} {output_path} -dst_h 2160 -dst_w 3840 -runs 100 -model DLPP_{model_trim}'   # Use for 1080p -> 4K
             )
             print(f"Running: {command}")
             subprocess.run(['adb', 'shell', command], check=True)
@@ -134,7 +140,6 @@ def calculate_psnr(video1_path: str, video2_path: str, capture_frames: bool = Fa
     subprocess.run(['adb', 'shell', cleanup_cmd], check=True)
 
     # Calculate PSNR between upscaled_frames and hi_res_frames
-    files = sorted([f for f in os.listdir('upscaled_frames') if f.endswith('.png')])    #TODO: is this line necessary
     upscaled_frames = load_frames('upscaled_frames')
     hi_res_frames = load_frames('hi_res_frames')
 
@@ -179,23 +184,27 @@ def main():
     Main function to extract frames and calculate average PSNR from two video files provided as command-line arguments.
     """
     parser = argparse.ArgumentParser(description="Video PSNR pipeline")
-    parser.add_argument('video1_path', type=str, help='First video file')
-    parser.add_argument('video2_path', type=str, help='Second video file')
-    parser.add_argument('frame_sampling_rate', type=int, help='[0, 100] Percentage of frames sampled')
+    parser.add_argument('video1_name', type=str, help='e.g., japan1080.mp4')
+    parser.add_argument('video2_name', type=str, help='e.g., japan8k.mp4')
+    parser.add_argument('frame_sampling_rate', type=int, help='Percentage of frames sampled (e.g., 5 for every 5% of frames)')
     parser.add_argument('model_trim', type=str, help="LOW, MEDIUM, or HIGH")
-    parser.add_argument('--skip-capture', action='store_true', default=False, help='If set, extract and save frames from videos (default: False)')
-    parser.add_argument('--skip-upscale', action='store_true', default=False, help='If set, run the upscaling model and pull upscaled frames (default: False)')
+    parser.add_argument('--skip-capture', action='store_true', default=False, help='If set, skips frame extraction from videos; skips to upscaling (default: False)')
+    parser.add_argument('--skip-upscale', action='store_true', default=False, help='If set, skips upscaling; skips to PSNR calculation (default: False)')
+
     args = parser.parse_args()
 
     capture_frames = not args.skip_capture
     run_upscaling = not args.skip_upscale
 
-    video1_path = f"videos/{args.video1_path}"
-    video2_path = f"videos/{args.video2_path}"
+    video1_path = f"videos/{args.video1_name}"
+    video2_path = f"videos/{args.video2_name}"
 
-    if capture_frames:
-        print("Capturing frames, so automatically setting unsetting --skip-upscale")
-        args.upscale_frames = True
+    # if capture_frames:
+    #     print("Capturing frames, so automatically going to upscale frames")
+    #     args.upscale_frames = True
+    # if not run_upscaling:
+    #     print ("Skipping upscaling, so automatically skipping frame capture")
+    #     args.capture_frames = False
 
     calculate_psnr(video1_path, video2_path, capture_frames, run_upscaling, sampling_rate=args.frame_sampling_rate, model_trim=args.model_trim)
 

@@ -1,4 +1,4 @@
-# File given by Daniel K
+# File given by DK
 
 import yt_dlp
 import argparse
