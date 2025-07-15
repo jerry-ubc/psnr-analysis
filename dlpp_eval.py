@@ -1,13 +1,10 @@
 import cv2
-import numpy as np
-from typing import List, Tuple, Union
 import sys
 from frame_psnr import calculate_average_psnr
 import av  # PyAV for AV1 support
 import os
 import argparse
 import shutil
-
 import subprocess
 
 
@@ -126,9 +123,9 @@ def calculate_psnr(video1_path: str, video2_path: str, capture_frames: bool = Fa
             output_path = f'{remote_upscaled}/upscaled_{i:05d}.png'
             command = (     #TODO: parametrize this step so no user intervention is required
                 f'cd {remote_dir} && chmod +x {dlpp_model} && '
-                f'./{dlpp_model} {input_path} {output_path} -dst_h 4320 -dst_w 7680 -runs 100 -model DLPP_{model_trim}'   # Use for 1080p -> 8K
+                # f'./{dlpp_model} {input_path} {output_path} -dst_h 4320 -dst_w 7680 -runs 100 -model DLPP_{model_trim}'   # Use for 1080p -> 8K
                 # f'./{dlpp_model} {input_path} {output_path} -runs 100 -model DLPP_{model_trim}'                           # Use for 4K -> 8K
-                # f'./{dlpp_model} {input_path} {output_path} -dst_h 2160 -dst_w 3840 -runs 100 -model DLPP_{model_trim}'   # Use for 1080p -> 4K
+                f'./{dlpp_model} {input_path} {output_path} -dst_h 2160 -dst_w 3840 -runs 100 -model DLPP_{model_trim}'   # Use for 1080p -> 4K
             )
             print(f"Running: {command}")
             subprocess.run(['adb', 'shell', command], check=True)
@@ -141,7 +138,6 @@ def calculate_psnr(video1_path: str, video2_path: str, capture_frames: bool = Fa
     subprocess.run(['adb', 'shell', cleanup_cmd], check=True)
 
     # Calculate PSNR between upscaled_frames and hi_res_frames
-    files = sorted([f for f in os.listdir('upscaled_frames') if f.endswith('.png')])    #TODO: is this line necessary
     upscaled_frames = load_frames('upscaled_frames')
     hi_res_frames = load_frames('hi_res_frames')
 
@@ -200,12 +196,12 @@ def main():
     video1_path = f"videos/{args.video1_name}"
     video2_path = f"videos/{args.video2_name}"
 
-    if capture_frames:
-        print("Capturing frames, so automatically unsetting --skip-upscale")
-        args.upscale_frames = True
-    if not run_upscaling:
-        print ("Skipping upscaling, so automatically setting --skip-capture")
-        args.capture_frames = False
+    # if capture_frames:
+    #     print("Capturing frames, so automatically going to upscale frames")
+    #     args.upscale_frames = True
+    # if not run_upscaling:
+    #     print ("Skipping upscaling, so automatically skipping frame capture")
+    #     args.capture_frames = False
 
     calculate_psnr(video1_path, video2_path, capture_frames, run_upscaling, sampling_rate=args.frame_sampling_rate, model_trim=args.model_trim)
 

@@ -135,7 +135,6 @@ def batch_calculate_psnr(subrepo):
             'max_psnr': float(f"{max(psnr_values):.2f}")
         })
     
-    # Print statistics
     print(f"\nStatistics for {subrepo}:")
     print(f"Number of comparisons: {stats['num_comparisons']}")
     print(f"Total execution time: {stats['total_time']:.2f} seconds")
@@ -147,14 +146,11 @@ def batch_calculate_psnr(subrepo):
         print(f"PSNR range: {stats['min_psnr']} to {stats['max_psnr']} dB")
     print("-" * 50)
     
-    # Save results to file
     save_results(subrepo, stats)
-
-    # Clear memory
     images.clear()
 
 def main():
-    print("PSNR Calculation Benchmark")
+    print("DLPP EVAL PSNR Calculation Benchmark")
     print("=" * 30)
     
     while True:
@@ -192,11 +188,9 @@ def main():
             if choice2.lower() == 'q':
                 continue
                 
-            # Add path prefix
             img1_path = os.path.join('images/other', choice1) if not choice1.startswith('images/other/') else choice1
             img2_path = os.path.join('images/other', choice2) if not choice2.startswith('images/other/') else choice2
             
-            # Time the calculation
             start_time = time.time()
             psnr = calculate_psnr(img1_path, img2_path)
             end_time = time.time()
@@ -252,6 +246,22 @@ def calculate_average_psnr(video1_frames, video2_frames, output_file='psnr_resul
                 successful_compares += 1
         avg_psnr = rolling_psnr / successful_compares if successful_compares > 0 else 0
         writer.writerow(['average', avg_psnr])
+
+    # Plot PSNR per frame over time
+    try:
+        import matplotlib.pyplot as plt
+        frame_indices = list(range(len(psnr_values)))
+        plt.figure(figsize=(10, 5))
+        plt.plot(frame_indices, psnr_values, marker='o', linestyle='-', color='b')
+        plt.title('PSNR per Frame Over Video')
+        plt.xlabel('Frame Index')
+        plt.ylabel('PSNR (dB)')
+        plt.grid(True)
+        plt.tight_layout()
+        plt.show()
+    except ImportError:
+        print("matplotlib is not installed. Skipping PSNR plot.")
+
     return avg_psnr
 
 if __name__ == '__main__':
